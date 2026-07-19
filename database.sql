@@ -1,0 +1,1 @@
+CREATE DATABASE blockchain_voting_db;
