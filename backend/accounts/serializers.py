@@ -4,6 +4,7 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from .models import User
 from .services import generate_otp
+from audit.services import AuditService
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -37,7 +38,22 @@ class RegisterSerializer(serializers.ModelSerializer):
 
 class LoginSerializer(TokenObtainPairSerializer):
     username_field = User.USERNAME_FIELD
+    @classmethod
+    def get_token(cls, user):
+        return super().get_token(user)
 
+    def validate(self, attrs):
+
+        data = super().validate(attrs)
+
+        request = self.context.get("request")
+
+        AuditService.log_login(
+            user=self.user,
+            request=request,
+        )
+
+        return data
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:

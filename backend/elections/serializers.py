@@ -7,6 +7,11 @@ class ElectionSerializer(serializers.ModelSerializer):
 
     created_by_name = serializers.SerializerMethodField()
 
+    organization_name = serializers.CharField(
+        source="organization.name",
+        read_only=True
+    )
+
     class Meta:
         model = Election
         fields = "__all__"

@@ -15,8 +15,31 @@ class AuditLog(BaseModel):
         DELETE = "DELETE", "Delete"
 
         VOTE = "VOTE", "Vote"
+        PUBLISH_RESULTS = "PUBLISH_RESULTS", "Publish Results"
 
-        RESULT = "RESULT", "Publish Result"
+        CAST_VOTE = "CAST_VOTE", "Cast Vote"
+        VIEW = "VIEW", "View"
+
+        EXPORT = "EXPORT", "Export"
+
+        DUPLICATE_VOTE_ATTEMPT = (
+            "DUPLICATE_VOTE_ATTEMPT",
+            "Duplicate Vote Attempt",
+        )
+
+        VOTE_REJECTED = (
+            "VOTE_REJECTED",
+            "Vote Rejected",
+        )
+        BLOCK_CREATED = (
+            "BLOCK_CREATED",
+            "Blockchain Block Created",
+        )
+
+        VERIFY = (
+            "VERIFY",
+            "Blockchain Verification",
+        )
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,

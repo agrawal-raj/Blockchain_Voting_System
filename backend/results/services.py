@@ -1,5 +1,7 @@
 from django.db.models import Count
 
+from audit.models import AuditLog
+from audit.services import AuditService
 from voting.models import Vote
 from positions.models import Position
 from candidates.models import Candidate
@@ -7,14 +9,49 @@ from elections.models import Election
 from organizations.models import Organization
 from blockchain.models import BlockchainBlock
 from blockchain.validators import BlockchainValidator
+from rest_framework.exceptions import PermissionDenied
 
 class ResultService:
 
     @staticmethod
-    def position_result(position_id):
+    def ensure_results_access(user, election):
+        """
+        Admin users can always view results.
+        Other users can only view published results.
+        """
+
+        if user and (
+            user.is_superuser
+            or user.is_staff
+            or getattr(user, "role", None) == "ADMIN"
+        ):
+            return
+
+        if not election.is_result_published:
+            raise PermissionDenied(
+                "Results have not been published yet."
+            )
+
+
+    @staticmethod
+    def position_result(position_id, user=None):
 
         position = Position.objects.get(id=position_id)
 
+        ResultService.ensure_results_access(
+            user,
+            position.election,
+        )
+        AuditService.log(
+            user=user,
+            action=AuditLog.Action.VIEW,
+            module="Results",
+            description=(
+                f"Viewed results for position "
+                f"'{position.title}'."
+            ),
+            object_id=str(position.id),
+        )
         candidates = []
 
         total_votes = Vote.objects.filter(
@@ -52,6 +89,7 @@ class ResultService:
         )
 
         return {
+            "position_id": str(position.id),
             "position": position.title,
             "total_votes": total_votes,
             "winner": candidates[0] if candidates else None,
@@ -59,10 +97,24 @@ class ResultService:
         }
     
     @staticmethod
-    def election_result(election_id):
+    def election_result(election_id, user=None):
 
         election = Election.objects.get(
             id=election_id
+        )
+        ResultService.ensure_results_access(
+            user,
+            election,
+        )
+        AuditService.log(
+            user=user,
+            action=AuditLog.Action.VIEW,
+            module="Results",
+            description=(
+                f"Viewed results for election "
+                f"'{election.title}'."
+            ),
+            object_id=str(election.id),
         )
 
         positions = Position.objects.filter(
@@ -74,7 +126,8 @@ class ResultService:
         for position in positions:
 
             result = ResultService.position_result(
-                position.id
+                position.id,
+                user=user
             )
 
             results.append(result)
@@ -87,9 +140,15 @@ class ResultService:
                 else None
             ),
 
+            "election_id": str(election.id),
+            
             "election": election.title,
 
             "status": election.status,
+
+            "is_result_published": election.is_result_published,
+
+            "result_published_at": election.result_published_at,
 
             "positions": results,
 
@@ -98,7 +157,7 @@ class ResultService:
         }
     
     @staticmethod
-    def organization_result(organization_id):
+    def organization_result(organization_id, user=None):
 
         organization = Organization.objects.get(
             id=organization_id
@@ -115,9 +174,20 @@ class ResultService:
             results.append(
 
                 ResultService.election_result(
-                    election.id
-                )
-
+                    election.id,
+                    user=user
+                ),
+                AuditService.log(
+                    user=user,
+                    action=AuditLog.Action.VIEW,
+                    module="Results",
+                    description=(
+                        f"Viewed organization results "
+                        f"for '{organization.name}'."
+                    ),
+                    object_id=str(organization.id),
+                    )
+                
             )
 
         return {
@@ -133,9 +203,8 @@ class ResultService:
     def dashboard():
 
         from accounts.models import User
-        from candidates.models import Candidate
 
-        return {
+        statistics = {
 
             "organizations":
                 Organization.objects.count(),
@@ -170,4 +239,73 @@ class ResultService:
 
             "blockchain_verified":
                 BlockchainValidator.verify(),
+
         }
+
+        elections = []
+
+        for election in Election.objects.select_related(
+            "organization"
+        ):
+
+            elections.append({
+
+                "id": str(election.id),
+
+                "title": election.title,
+
+                "organization": (
+                    election.organization.name
+                    if election.organization
+                    else "-"
+                ),
+
+                "status": election.status,
+
+                "positions": Position.objects.filter(
+                    election=election
+                ).count(),
+
+                "votes": Vote.objects.filter(
+                    candidate__position__election=election
+                ).count(),
+
+            })
+
+        return {
+
+            "statistics": statistics,
+
+            "elections": elections,
+
+        }
+
+    @staticmethod
+    def ensure_results_access(user, election):
+        """
+        Admin users can always view results.
+        Other users can only view published results.
+        """
+
+        if user and (
+            user.is_superuser
+            or user.is_staff
+            or getattr(user, "role", None) == "ADMIN"
+        ):
+            return
+
+        if not election.is_result_published:
+            raise PermissionDenied(
+                "Results have not been published yet."
+            )
+
+        
+    @staticmethod
+    def get_election_results(
+    election_id,
+    user=None,
+    ):
+        ResultService.ensure_results_access(
+    user,
+    election,
+    )   

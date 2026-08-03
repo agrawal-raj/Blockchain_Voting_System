@@ -27,11 +27,13 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django_filters",
 
     # Third Party Apps
     "rest_framework",
     "rest_framework_simplejwt",
     "corsheaders",
+    "drf_spectacular",
 
     # Local Apps
     "accounts",
@@ -45,6 +47,7 @@ INSTALLED_APPS = [
     "positions",
     "results",
     "audit",
+
 ]
 INSTALLED_APPS += [
     "rest_framework_simplejwt.token_blacklist",
@@ -124,11 +127,30 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ),
+   
+
+
+    "DEFAULT_PAGINATION_CLASS":
+        "rest_framework.pagination.PageNumberPagination",
+
+    "PAGE_SIZE": 10,
+
+    "DEFAULT_SCHEMA_CLASS":
+        "drf_spectacular.openapi.AutoSchema",
+
+    "DEFAULT_FILTER_BACKENDS": (
+
+        "django_filters.rest_framework.DjangoFilterBackend",
+
+        "rest_framework.filters.SearchFilter",
+
+        "rest_framework.filters.OrderingFilter",
+
+    ),
+
     "DEFAULT_PERMISSION_CLASSES": (
         "rest_framework.permissions.IsAuthenticated",
     ),
-    "EXCEPTION_HANDLER":
-        "core.exceptions.custom_exception_handler",
 
 }
 
@@ -143,3 +165,44 @@ SIMPLE_JWT = {
 }
 
 AUTH_USER_MODEL = "accounts.User"
+
+
+SPECTACULAR_SETTINGS = {
+
+    "TITLE": "Blockchain Online Voting System API",
+
+    "DESCRIPTION":
+        "REST API documentation for the Blockchain-Based Online Voting System.",
+
+    "VERSION": "1.0.0",
+
+    "SERVE_INCLUDE_SCHEMA": False,
+
+    "CONTACT": {
+        "name": "Raj Agrawal",
+        "email": "agrawalraj.py@gmail.com",
+    },
+
+    "LICENSE": {
+        "name": "MIT License",
+    },
+}
+
+
+# ==========================================
+# Email Configuration
+# ==========================================
+
+EMAIL_BACKEND = config("EMAIL_BACKEND")
+
+EMAIL_HOST = config("EMAIL_HOST")
+
+EMAIL_PORT = config("EMAIL_PORT", cast=int)
+
+EMAIL_HOST_USER = config("EMAIL_HOST_USER")
+
+EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD")
+
+EMAIL_USE_TLS = config("EMAIL_USE_TLS", cast=bool)
+
+DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL")

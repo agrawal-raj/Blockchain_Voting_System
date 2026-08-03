@@ -15,6 +15,24 @@ class PositionSerializer(serializers.ModelSerializer):
         read_only=True,
     )
 
+
     class Meta:
         model = Position
-        fields = "__all__"
+        fields = ["id",
+            "election",
+            "election_name",
+
+            "organization_name",
+
+            "title",
+
+            "description",
+
+            "max_candidates",
+
+            "max_votes_per_voter",
+
+            "result_type",
+
+            "display_order"]
+            

@@ -44,3 +44,26 @@ class AuditService:
             user_agent=user_agent,
 
         )
+
+
+    @staticmethod
+    def log_login(user, request=None):
+
+        AuditService.log(
+            user=user,
+            action=AuditLog.Action.LOGIN,
+            module="Authentication",
+            description=f"{user.email} logged in.",
+            request=request,
+        )
+
+    @staticmethod
+    def log_logout(user, request=None):
+
+        AuditService.log(
+            user=user,
+            action=AuditLog.Action.LOGOUT,
+            module="Authentication",
+            description=f"{user.email} logged out.",
+            request=request,
+        )

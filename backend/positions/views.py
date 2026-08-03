@@ -7,8 +7,24 @@ from .permissions import IsAdminUser
 
 from audit.services import AuditService
 from audit.models import AuditLog
+from drf_spectacular.utils import extend_schema, extend_schema_view
 
 
+
+@extend_schema_view(
+    get=extend_schema(
+        summary="List Positions",
+        description="Retrieve a list of all positions.",
+        tags=["Positions"],
+    ),
+
+    post=extend_schema(
+        summary="Create Position",
+        description="Create a new position.",
+        tags=["Positions"],
+    ),
+
+)
 class PositionListCreateView(generics.ListCreateAPIView):
 
     serializer_class = PositionSerializer
@@ -48,8 +64,43 @@ class PositionListCreateView(generics.ListCreateAPIView):
             request=self.request,
             object_id=str(position.id),
         )
+    
+    filterset_fields = [
+            "election",
+        ]
+
+    search_fields = [
+            "title",
+        ]
+
+    ordering_fields = [
+            "display_order",
+            "title",
+        ]
 
 
+@extend_schema_view(
+    get=extend_schema(
+        summary="Get Position",
+        description="Retrieve a single position.",
+        tags=["Positions"],
+    ),
+    put=extend_schema(
+        summary="Update Position",
+        description="Update a position.",
+        tags=["Positions"],
+    ),
+    patch=extend_schema(
+        summary="Partially Update Position",
+        description="Partially update a position.",
+        tags=["Positions"],
+    ),
+    delete=extend_schema(
+        summary="Delete Position",
+        description="Delete a position.",
+        tags=["Positions"],
+    ),
+)
 class PositionDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     queryset = Position.objects.select_related(
@@ -60,3 +111,33 @@ class PositionDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = PositionSerializer
 
     permission_classes = [IsAdminUser]
+
+
+    def perform_update(self, serializer):
+
+        position = serializer.save()
+
+        AuditService.log(
+            user=self.request.user,
+            action=AuditLog.Action.UPDATE,
+            module="Position",
+            description=f"Position '{position.title}' updated.",
+            request=self.request,
+            object_id=str(position.id),
+        )
+
+    def perform_destroy(self, instance):
+
+        title = instance.title
+        position_id = str(instance.id)
+
+        instance.delete()
+
+        AuditService.log(
+            user=self.request.user,
+            action=AuditLog.Action.DELETE,
+            module="Position",
+            description=f"Position '{title}' deleted.",
+            request=self.request,
+            object_id=position_id,
+        )

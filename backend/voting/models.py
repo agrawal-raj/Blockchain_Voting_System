@@ -3,6 +3,8 @@ from django.db import models
 
 from common.models import BaseModel
 from candidates.models import Candidate
+from positions.models import Position
+from elections.models import Election
 
 
 class Vote(BaseModel):

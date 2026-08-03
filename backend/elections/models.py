@@ -7,14 +7,19 @@ from organizations.models import Organization
 class Election(BaseModel):
 
     class ElectionType(models.TextChoices):
-        SCHOOL = "SCHOOL", "School Election"
-        CLASS = "CLASS", "Class Election"
-        HOUSE = "HOUSE", "House Election"
+        CORPORATE = "CORPORATE", "Corporate"
+        ACADEMIC = "ACADEMIC", "Academic"
+        GOVERNMENT = "GOVERNMENT", "Government"
+        SOCIETY = "SOCIETY", "Society / Association"
+        NGO = "NGO", "NGO"
+        CLUB = "CLUB", "Club"
+        OTHER = "OTHER", "Other"
 
     class Status(models.TextChoices):
         DRAFT = "DRAFT", "Draft"
         ACTIVE = "ACTIVE", "Active"
         COMPLETED = "COMPLETED", "Completed"
+        CANCELLED = "CANCELLED", "Cancelled"
 
     title = models.CharField(
         max_length=200
@@ -25,7 +30,7 @@ class Election(BaseModel):
     election_type = models.CharField(
         max_length=20,
         choices=ElectionType.choices,
-        default=ElectionType.SCHOOL,
+        default=ElectionType.CORPORATE,
     )
 
     start_date = models.DateTimeField()
@@ -38,6 +43,15 @@ class Election(BaseModel):
         default=Status.DRAFT,
     )
 
+    is_result_published = models.BooleanField(
+    default=False
+    )
+
+    result_published_at = models.DateTimeField(
+    blank=True,
+    null=True
+    )
+    
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -51,5 +65,11 @@ class Election(BaseModel):
         
     )
 
+    cancel_reason = models.TextField(
+    blank=True,
+    null=True
+
+    )
     def __str__(self):
         return self.title
+    

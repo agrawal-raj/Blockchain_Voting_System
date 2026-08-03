@@ -7,8 +7,14 @@ from rest_framework.views import APIView
 
 from .serializers import PositionResultSerializer
 from .services import ResultService
+from drf_spectacular.utils import extend_schema
 
 
+@extend_schema(
+    summary="Get Position Result",
+    description="Retrieve the result for a specific position.",
+    tags=["Results"],
+)
 class PositionResultView(APIView):
 
     permission_classes = [IsAuthenticated]
@@ -16,7 +22,8 @@ class PositionResultView(APIView):
     def get(self, request, position_id):
 
         result = ResultService.position_result(
-            position_id
+            position_id,
+            user=request.user
         )
 
         serializer = PositionResultSerializer(
@@ -26,6 +33,11 @@ class PositionResultView(APIView):
         return Response(serializer.data)
 
 
+@extend_schema(
+    summary="Get Election Result",
+    description="Retrieve the result for a specific election.",
+    tags=["Results"],
+)
 class ElectionResultView(APIView):
 
     permission_classes = [
@@ -37,12 +49,17 @@ class ElectionResultView(APIView):
         return Response(
 
             ResultService.election_result(
-                election_id
+                election_id, user=request.user
             )
 
         )
 
 
+@extend_schema(
+    summary="Get Organization Result",
+    description="Retrieve the result for a specific organization.",
+    tags=["Results"],
+)
 class OrganizationResultView(APIView):
 
     permission_classes = [
@@ -54,12 +71,17 @@ class OrganizationResultView(APIView):
         return Response(
 
             ResultService.organization_result(
-                organization_id
+                organization_id, user=request.user
             )
 
         )
 
 
+@extend_schema(
+    summary="Get Dashboard Result",
+    description="Retrieve the dashboard result.",
+    tags=["Results"],
+)
 class DashboardView(APIView):
 
     permission_classes = [

@@ -2,6 +2,9 @@ import hashlib
 
 from django.db import transaction
 
+from audit.models import AuditLog
+from audit.services import AuditService
+
 from .models import BlockchainBlock
 
 
@@ -36,7 +39,7 @@ class BlockchainService:
 
     @staticmethod
     @transaction.atomic
-    def create_block(vote):
+    def create_block(vote, user=None, request=None):
 
         previous_block = (
             BlockchainBlock.objects
@@ -82,6 +85,18 @@ class BlockchainService:
             current_hash=current_hash,
             nonce=nonce,
             merkle_root=merkle_root,
+        )
+
+        AuditService.log(
+            user=user,
+            action=AuditLog.Action.BLOCK_CREATED,
+            module="Blockchain",
+            description=(
+                f"Blockchain block #{block.block_number} "
+                f"created successfully."
+            ),
+            request=request,
+            object_id=str(block.id),
         )
 
         return block
