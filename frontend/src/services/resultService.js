@@ -48,7 +48,12 @@ const resultService = {
     );
 
     return response.data;
-},
+    },
+
+    publishedResults: async () => {
+    const response = await api.get("/results/published/");
+    return response.data;
+    },
 
 };
 

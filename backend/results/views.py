@@ -95,3 +95,22 @@ class DashboardView(APIView):
             ResultService.dashboard()
 
         )
+
+
+
+@extend_schema(
+    summary="Get Published Results",
+    description="Retrieve all published election results for voters.",
+    tags=["Results"],
+)
+class PublishedResultsView(APIView):
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+
+        return Response(
+            ResultService.published_results(
+                user=request.user
+            )
+        )

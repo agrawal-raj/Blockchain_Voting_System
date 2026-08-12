@@ -6,6 +6,8 @@ from .views import (
     AvailableElectionListView,
     ElectionDetailView,
     PositionCandidateListView,
+    VoteHistoryView,
+    VoteBlockchainVerificationView,
 )
 
 urlpatterns = [
@@ -31,6 +33,16 @@ urlpatterns = [
         "positions/<uuid:pk>/candidates/",
         PositionCandidateListView.as_view(),
         name="position_candidates",
+    ),
+    path(
+        "history/",
+        VoteHistoryView.as_view(),
+        name="vote_history",
+    ),
+    path(
+        "history/<uuid:vote_id>/verify/",
+        VoteBlockchainVerificationView.as_view(),
+        name="verify_vote_blockchain",
     ),
 
 

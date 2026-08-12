@@ -6,6 +6,7 @@ from voting.models import Vote
 from accounts.models import User
 
 
+
 class DashboardService:
 
     @staticmethod
@@ -67,4 +68,5 @@ class DashboardService:
             "votes": total_votes,
 
             "voting_percentage": voting_percentage,
+
         }

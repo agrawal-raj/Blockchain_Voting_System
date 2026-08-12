@@ -1,16 +1,16 @@
 import Button from "../common/Button";
 
+
 export default function PositionCard({
-
     position,
-
     onVote,
-
+    canVote = true,
 }) {
 
     return (
 
         <div className="bg-white rounded-xl shadow-md p-5">
+
 
             <h2 className="text-xl font-semibold">
 
@@ -18,25 +18,52 @@ export default function PositionCard({
 
             </h2>
 
-            <p className="text-gray-500 mt-2">
 
-                Maximum Candidates :
+            {
+                position.max_candidates !== undefined &&
+                position.max_candidates !== null && (
 
-                {position.max_candidates}
+                    <p className="text-gray-500 mt-2">
 
-            </p>
+                        Maximum Candidates:
+
+                        <span className="ml-1">
+
+                            {position.max_candidates}
+
+                        </span>
+
+                    </p>
+
+                )
+            }
+
 
             <Button
 
                 className="mt-4"
 
-                onClick={() => onVote(position.id)}
+                disabled={!canVote}
+
+                onClick={() => {
+
+                    if (!canVote) {
+                        return;
+                    }
+
+                    onVote(position.id);
+
+                }}
 
             >
 
-                Vote
+                {canVote
+                    ? "Vote"
+                    : "Voting Unavailable"
+                }
 
             </Button>
+
 
         </div>
 

@@ -11,6 +11,7 @@ from blockchain.models import BlockchainBlock
 from blockchain.validators import BlockchainValidator
 from rest_framework.exceptions import PermissionDenied
 
+
 class ResultService:
 
     @staticmethod
@@ -154,6 +155,7 @@ class ResultService:
 
             "blockchain_verified":
                 BlockchainValidator.verify(),
+                
         }
     
     @staticmethod
@@ -240,6 +242,19 @@ class ResultService:
             "blockchain_verified":
                 BlockchainValidator.verify(),
 
+            "published_results" : Election.objects.filter(
+                is_result_published=True
+            ).count(),
+
+            "pending_results" : Election.objects.filter(
+                status=Election.Status.COMPLETED,
+                is_result_published=False
+            ).count()
+            ,
+            "verified_results" : Election.objects.filter(
+                is_result_published=True
+            ).count(),
+
         }
 
         elections = []
@@ -307,5 +322,57 @@ class ResultService:
     ):
         ResultService.ensure_results_access(
     user,
-    election,
+    election_id,
     )   
+
+
+    @staticmethod
+    def published_results(user=None):
+
+        elections = (
+            Election.objects
+            .filter(
+                status=Election.Status.COMPLETED,
+                is_result_published=True,
+            )
+            .select_related("organization")
+            .order_by("-result_published_at")
+        )
+
+        results = []
+
+        for election in elections:
+
+            results.append({
+
+                "id": str(election.id),
+
+                "title": election.title,
+
+                "organization": (
+                    election.organization.name
+                    if election.organization
+                    else "-"
+                ),
+
+                "published_at": election.result_published_at,
+
+                "positions": Position.objects.filter(
+                    election=election
+                ).count(),
+
+                "votes": Vote.objects.filter(
+                    candidate__position__election=election
+                ).count(),
+
+                "blockchain_verified": BlockchainValidator.verify(),
+
+            })
+
+        return {
+
+            "total_results": len(results),
+
+            "results": results,
+
+        }

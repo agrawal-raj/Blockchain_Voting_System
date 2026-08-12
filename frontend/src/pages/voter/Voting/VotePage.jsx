@@ -9,11 +9,13 @@ import ConfirmModal from "../../../components/common/ConfirmModal";
 import Button from "../../../components/common/Button";
 import Loader from "../../../components/common/LoadingSpinner";
 
+
 export default function VotePage() {
 
     const { positionId } = useParams();
 
     const navigate = useNavigate();
+
 
     const [candidates, setCandidates] = useState([]);
 
@@ -25,11 +27,15 @@ export default function VotePage() {
 
     const [submitting, setSubmitting] = useState(false);
 
+    const [voteError, setVoteError] = useState("");
+
+
     useEffect(() => {
 
         loadCandidates();
 
     }, [positionId]);
+
 
     const loadCandidates = async () => {
 
@@ -37,15 +43,35 @@ export default function VotePage() {
 
             setLoading(true);
 
-            const data = await votingService.getCandidates(positionId);
+            setVoteError("");
 
-            setCandidates(data);
+            const data =
+                await votingService.getCandidates(
+                    positionId
+                );
 
-        } catch (error) {
+            setCandidates(
+                Array.isArray(data)
+                    ? data
+                    : []
+            );
 
-            toast.error("Failed to load candidates.");
+        }
 
-        } finally {
+        catch (error) {
+
+            console.error(
+                "Failed to load candidates:",
+                error
+            );
+
+            toast.error(
+                "Failed to load candidates."
+            );
+
+        }
+
+        finally {
 
             setLoading(false);
 
@@ -53,52 +79,136 @@ export default function VotePage() {
 
     };
 
+
     const submitVote = async () => {
 
         if (!selectedCandidate) {
 
-            toast.warning("Please select a candidate.");
+            toast.warning(
+                "Please select a candidate."
+            );
 
             return;
 
         }
 
+
         try {
 
             setSubmitting(true);
 
-            const response = await votingService.castVote(
-                selectedCandidate.id
+            setVoteError("");
+
+
+            const response =
+                await votingService.castVote(
+                    selectedCandidate.id
+                );
+
+
+            toast.success(
+                "Vote submitted successfully."
             );
 
-            toast.success("Vote submitted successfully.");
 
             navigate(
                 "/voter/vote-success",
                 {
                     state: {
-                    vote: response,
-                    candidate : selectedCandidate,
+                        vote: response,
+                        candidate: selectedCandidate,
+                    },
                 }
+            );
+
+        }
+
+        catch (error) {
+
+            console.error(
+                "Voting failed:",
+                error
+            );
+
+
+            /*
+             * The backend returns:
+             *
+             * {
+             *     "success": false,
+             *     "message": "..."
+             * }
+             *
+             * when voting fails.
+             */
+
+            const backendMessage =
+                error?.response?.data?.message;
+
+
+            const message =
+                typeof backendMessage === "string" &&
+                backendMessage.trim()
+                    ? backendMessage
+                    : "Voting failed.";
+
+
+            /*
+             * Handle duplicate voting separately.
+             *
+             * The current backend prevents a voter from
+             * voting more than once for the same position.
+             */
+
+            const isAlreadyVoted =
+                message
+                    .toLowerCase()
+                    .includes("already voted");
+
+
+            if (isAlreadyVoted) {
+
+                const duplicateMessage =
+                    "You have already voted for this position.";
+
+
+                setVoteError(
+                    duplicateMessage
+                );
+
+
+                toast.warning(
+                    duplicateMessage
+                );
+
             }
-            );
 
-        } catch (error) {
+            else {
 
-            toast.error(
-                error.response?.data?.message ||
-                "Voting failed."
-            );
+                setVoteError(message);
 
-        } finally {
+                toast.error(message);
 
-            setSubmitting(false);
+            }
+
+
+            /*
+             * Close the confirmation modal after
+             * the backend rejects the vote.
+             */
 
             setConfirmOpen(false);
 
         }
 
+        finally {
+
+            setSubmitting(false);
+
+        }
+
     };
+
 
     if (loading) {
 
@@ -106,23 +216,114 @@ export default function VotePage() {
 
     }
 
+
     return (
 
         <div className="max-w-7xl mx-auto p-6">
 
-            <h1 className="text-3xl font-bold mb-8">
 
-                Select Your Candidate
+            <div className="flex justify-between items-center mb-8">
 
-            </h1>
+                <div>
+
+                    <h1 className="text-3xl font-bold">
+
+                        Select Your Candidate
+
+                    </h1>
+
+
+                    <p className="text-gray-500 mt-2">
+
+                        Select one candidate and cast your vote.
+
+                    </p>
+
+                </div>
+
+
+                <Button
+                    variant="secondary"
+                    onClick={() =>
+                        navigate(-1)
+                    }
+                >
+
+                    Back
+
+                </Button>
+
+            </div>
+
 
             {
+                voteError && (
 
+                    <div
+                        className="
+                            mb-6
+                            rounded-lg
+                            border
+                            border-red-200
+                            bg-red-50
+                            px-5
+                            py-4
+                            text-red-700
+                        "
+                    >
+
+                        <div className="flex items-start gap-3">
+
+                            <span className="text-xl">
+
+                                ⚠️
+
+                            </span>
+
+
+                            <div>
+
+                                <p className="font-semibold">
+
+                                    Voting Unavailable
+
+                                </p>
+
+
+                                <p className="mt-1">
+
+                                    {voteError}
+
+                                </p>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                )
+            }
+
+
+            {
                 candidates.length === 0 ? (
 
-                    <div className="text-center text-gray-500">
+                    <div className="bg-white rounded-xl shadow p-8 text-center">
 
-                        No active candidates found.
+                        <h2 className="text-xl font-semibold">
+
+                            No Active Candidates Found
+
+                        </h2>
+
+
+                        <p className="text-gray-500 mt-2">
+
+                            There are currently no active
+                            candidates available for this position.
+
+                        </p>
 
                     </div>
 
@@ -132,63 +333,70 @@ export default function VotePage() {
 
                         {
 
-                            candidates.map((candidate) => (
+                            candidates.map(
+                                (candidate) => (
 
-                                <CandidateCard
+                                    <CandidateCard
 
-                                    key={candidate.id}
+                                        key={candidate.id}
 
-                                    candidate={candidate}
+                                        candidate={candidate}
 
-                                    selected={
+                                        selected={
+                                            selectedCandidate?.id ===
+                                            candidate.id
+                                        }
 
-                                        selectedCandidate?.id === candidate.id
+                                        onSelect={(
+                                            candidate
+                                        ) => {
 
-                                    }
+                                            setSelectedCandidate(
+                                                candidate
+                                            );
 
-                                    onSelect={setSelectedCandidate}
+                                            setVoteError("");
 
-                                />
+                                        }}
 
-                            ))
+                                    />
+
+                                )
+                            )
 
                         }
 
                     </div>
 
                 )
-
             }
+
 
             <div className="mt-8 flex justify-end">
 
                 <Button
 
                     disabled={
-
                         !selectedCandidate ||
-
                         submitting
-
                     }
 
-                    onClick={() => setConfirmOpen(true)}
+                    onClick={() =>
+                        setConfirmOpen(true)
+                    }
 
                 >
 
                     {
-
                         submitting
-
                             ? "Submitting..."
-
                             : "Cast Vote"
-
                     }
 
                 </Button>
 
             </div>
+
 
             <ConfirmModal
 
@@ -196,7 +404,15 @@ export default function VotePage() {
 
                 title="Confirm Vote"
 
-                message={`Are you sure you want to vote for "${selectedCandidate?.full_name}"?\n\nOnce submitted, your vote cannot be changed.`}
+                message={
+
+                    selectedCandidate
+
+                        ? `Are you sure you want to vote for "${selectedCandidate.full_name}"?\n\nOnce submitted, your vote cannot be changed.`
+
+                        : "Please select a candidate before confirming your vote."
+
+                }
 
                 confirmText="Cast Vote"
 
@@ -204,7 +420,9 @@ export default function VotePage() {
 
                 onConfirm={submitVote}
 
-                onCancel={() => setConfirmOpen(false)}
+                onCancel={() =>
+                    setConfirmOpen(false)
+                }
 
             />
 

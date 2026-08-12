@@ -1,6 +1,6 @@
 from django.urls import path
 
-from .views import PositionResultView, ElectionResultView, OrganizationResultView, DashboardView
+from .views import PositionResultView, ElectionResultView, OrganizationResultView, DashboardView, PublishedResultsView
 
 urlpatterns = [
 
@@ -22,6 +22,11 @@ path(
 path(
     "dashboard/",
     DashboardView.as_view(),
+),
+path(
+    "published/",
+    PublishedResultsView.as_view(),
+    name="published_results",
 ),
 
 ]
