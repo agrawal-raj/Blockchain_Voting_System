@@ -17,7 +17,30 @@ export default function ConfirmModal({
 
     onCancel,
 
+    loading = false,
+
 }) {
+
+    const handleClose = () => {
+
+        if (loading) {
+            return;
+        }
+
+        onCancel();
+
+    };
+
+
+    const handleConfirm = () => {
+
+        if (loading) {
+            return;
+        }
+
+        onConfirm();
+
+    };
 
     return (
 
@@ -27,7 +50,7 @@ export default function ConfirmModal({
 
             title={title}
 
-            onClose={onCancel}
+            onClose={handleClose}
 
         >
 
@@ -43,7 +66,8 @@ export default function ConfirmModal({
 
                     variant="secondary"
 
-                    onClick={onCancel}
+                    onClick={handleClose}
+                    disabled={loading}
 
                 >
 
@@ -53,13 +77,13 @@ export default function ConfirmModal({
 
                 <Button
 
-                    variant="danger"
-
-                    onClick={onConfirm}
+                    variant={confirmVariant}
+                    onClick={handleConfirm}
+                    disabled={loading}
 
                 >
 
-                    {confirmText}
+                    {loading ? "Deleting..." : confirmText}
 
                 </Button>
 

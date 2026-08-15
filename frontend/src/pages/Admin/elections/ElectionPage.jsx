@@ -25,6 +25,8 @@ export default function ElectionPage() {
 
     const [saving, setSaving] = useState(false);
 
+    const [deleting, setDeleting] = useState(false);
+
     const [search, setSearch] = useState("");
 
     const [next, setNext] = useState(null);
@@ -33,15 +35,22 @@ export default function ElectionPage() {
 
     const [openModal, setOpenModal] = useState(false);
 
-    const [editingElection, setEditingElection] = useState(null);
+    const [editingElection, setEditingElection] =
+        useState(null);
 
-    const [deleteElectionId, setDeleteElectionId] = useState(null);
+    const [deleteElectionId, setDeleteElectionId] =
+        useState(null);
+
+    const [deleteElectionData, setDeleteElectionData] =
+        useState(null);
+
 
     useEffect(() => {
 
         loadElections();
 
     }, [search]);
+
 
     const loadElections = async (url = null) => {
 
@@ -54,20 +63,20 @@ export default function ElectionPage() {
             if (url) {
 
                 response =
-                    await electionService.getElectionsByURL(url);
+                    await electionService.getElectionsByURL(
+                        url
+                    );
 
             } else {
 
                 response =
                     await electionService.getElections({
-
                         search,
-
                     });
 
             }
 
-            setElections(response.results);
+            setElections(response.results || []);
 
             setNext(response.next);
 
@@ -75,7 +84,15 @@ export default function ElectionPage() {
 
         } catch (error) {
 
-            console.log(error);
+            console.error(
+                "Failed to load elections:",
+                error
+            );
+
+            toast.error(
+                error.response?.data?.detail ||
+                "Unable to load elections"
+            );
 
         } finally {
 
@@ -85,28 +102,38 @@ export default function ElectionPage() {
 
     };
 
+
     const createElection = async (data) => {
 
         try {
 
             setSaving(true);
 
-            await electionService.createElection(data);
+            await electionService.createElection(
+                data
+            );
 
-            toast.success("Election Created");
+            toast.success(
+                "Election created successfully."
+            );
 
             setOpenModal(false);
 
-            loadElections();
+            setEditingElection(null);
+
+            await loadElections();
 
         } catch (error) {
 
+            console.error(
+                "Create election error:",
+                error
+            );
+
             toast.error(
-
                 error.response?.data?.detail ||
-
+                error.response?.data?.message ||
                 "Unable to create election"
-
             );
 
         } finally {
@@ -117,36 +144,58 @@ export default function ElectionPage() {
 
     };
 
+
     const updateElection = async (data) => {
+
+        if (!editingElection) {
+            return;
+        }
+
+        /*
+         * Frontend protection.
+         *
+         * Backend also enforces this rule, so this is
+         * only an additional UX safeguard.
+         */
+        if (editingElection.is_result_published) {
+
+            toast.error(
+                "Published election cannot be modified."
+            );
+
+            return;
+        }
 
         try {
 
             setSaving(true);
 
             await electionService.updateElection(
-
                 editingElection.id,
-
                 data
-
             );
 
-            toast.success("Election Updated");
+            toast.success(
+                "Election updated successfully."
+            );
 
             setEditingElection(null);
 
             setOpenModal(false);
 
-            loadElections();
+            await loadElections();
 
         } catch (error) {
 
+            console.error(
+                "Update election error:",
+                error
+            );
+
             toast.error(
-
                 error.response?.data?.detail ||
-
+                error.response?.data?.message ||
                 "Unable to update election"
-
             );
 
         } finally {
@@ -157,116 +206,145 @@ export default function ElectionPage() {
 
     };
 
+
+    const openDeleteConfirmation = (election) => {
+
+        setDeleteElectionId(
+            election.id
+        );
+
+        setDeleteElectionData(
+            election
+        );
+
+    };
+
+
+    const closeDeleteConfirmation = () => {
+
+        if (deleting) {
+            return;
+        }
+
+        setDeleteElectionId(null);
+
+        setDeleteElectionData(null);
+
+    };
+
+
     const deleteElection = async () => {
+
+        if (!deleteElectionId) {
+            return;
+        }
 
         try {
 
+            setDeleting(true);
+
             await electionService.deleteElection(
-
                 deleteElectionId
-
             );
 
-            toast.success("Election Deleted");
+            toast.success(
+                "Election deleted successfully."
+            );
 
             setDeleteElectionId(null);
 
-            loadElections();
+            setDeleteElectionData(null);
 
-        } catch {
+            await loadElections();
 
-            toast.error("Delete failed");
+        } catch (error) {
+
+            console.error(
+                "Delete election error:",
+                error
+            );
+
+            toast.error(
+                error.response?.data?.detail ||
+                error.response?.data?.message ||
+                "Unable to delete election."
+            );
+
+        } finally {
+
+            setDeleting(false);
 
         }
 
     };
 
+
     const columns = [
 
         {
-
             key: "title",
-
             label: "Title",
-
         },
 
         {
-
             key: "organization_name",
-
             label: "Organization",
-
         },
 
         {
-
             key: "election_type",
-
             label: "Type",
-
         },
 
         {
-
             key: "status",
-
             label: "Status",
 
-            render: row => (
+            render: (row) => (
 
-                <StatusBadge status={row.status} />
+                <StatusBadge
+                    status={row.status}
+                />
 
             ),
 
         },
 
         {
-
             key: "start_date",
-
             label: "Start",
-
         },
 
         {
-
             key: "end_date",
-
             label: "End",
-
         },
 
     ];
+
 
     return (
 
         <DashboardLayout>
 
             <PageHeader
-
                 title="Elections"
-
                 subtitle="Manage Elections"
-
             />
+
 
             <Card>
 
                 <div className="flex justify-between mb-5">
 
                     <SearchBar
-
                         value={search}
-
                         onChange={setSearch}
-
                         placeholder="Search Election..."
-
                     />
 
-                    <Button
 
+                    <Button
                         onClick={() => {
 
                             setEditingElection(null);
@@ -274,14 +352,12 @@ export default function ElectionPage() {
                             setOpenModal(true);
 
                         }}
-
                     >
-
                         + Add Election
-
                     </Button>
 
                 </div>
+
 
                 <Table
 
@@ -295,36 +371,47 @@ export default function ElectionPage() {
 
                         <div className="flex gap-2">
 
-                            <Button
+                            {/*
+                             * Published elections cannot be
+                             * modified.
+                             *
+                             * The backend is still responsible
+                             * for enforcing this rule.
+                             */}
 
-                                variant="warning"
+                            {!election.is_result_published && (
 
-                                onClick={() => {
+                                <Button
 
-                                    setEditingElection(election);
+                                    variant="warning"
 
-                                    setOpenModal(true);
+                                    onClick={() => {
 
-                                }}
+                                        setEditingElection(
+                                            election
+                                        );
 
-                            >
+                                        setOpenModal(true);
 
-                                Edit
+                                    }}
 
-                            </Button>
+                                >
+
+                                    Edit
+
+                                </Button>
+
+                            )}
+
 
                             <Button
 
                                 variant="danger"
 
                                 onClick={() =>
-
-                                    setDeleteElectionId(
-
-                                        election.id
-
+                                    openDeleteConfirmation(
+                                        election
                                     )
-
                                 }
 
                             >
@@ -339,6 +426,7 @@ export default function ElectionPage() {
 
                 />
 
+
                 <Pagination
 
                     previous={previous}
@@ -346,36 +434,33 @@ export default function ElectionPage() {
                     next={next}
 
                     onPrevious={() =>
-
                         loadElections(previous)
-
                     }
 
                     onNext={() =>
-
                         loadElections(next)
-
                     }
 
                 />
 
             </Card>
 
+
             <Modal
 
                 open={openModal}
 
                 title={
-
                     editingElection
-
                         ? "Edit Election"
-
                         : "Create Election"
-
                 }
 
                 onClose={() => {
+
+                    if (saving) {
+                        return;
+                    }
 
                     setEditingElection(null);
 
@@ -387,41 +472,65 @@ export default function ElectionPage() {
 
                 <ElectionForm
 
-                    initialData={editingElection}
+                    initialData={
+                        editingElection
+                    }
 
                     loading={saving}
 
                     onSubmit={
-
                         editingElection
-
                             ? updateElection
-
                             : createElection
-
                     }
 
                 />
 
             </Modal>
 
+
             <ConfirmModal
 
-                open={!!deleteElectionId}
+                open={
+                    !!deleteElectionId
+                }
 
                 title="Delete Election"
 
-                message="Are you sure?"
+                message={
+                    deleteElectionData
+                        ? (
+                            deleteElectionData.is_result_published
+                                ? (
+                                    `This election has published results. ` +
+                                    `Deleting "${deleteElectionData.title}" ` +
+                                    `will permanently remove the election ` +
+                                    `and its related positions, candidates, ` +
+                                    `votes, results, and blockchain records. ` +
+                                    `This action cannot be undone.`
+                                )
+                                : (
+                                    `Are you sure you want to delete ` +
+                                    `"${deleteElectionData.title}"? ` +
+                                    `Its related positions, candidates, ` +
+                                    `votes, and blockchain records will ` +
+                                    `also be removed. This action cannot ` +
+                                    `be undone.`
+                                )
+                        )
+                        : "Are you sure you want to delete this election?"
+                }
 
                 onConfirm={deleteElection}
 
-                onCancel={() =>
-
-                    setDeleteElectionId(null)
-
+                onCancel={
+                    closeDeleteConfirmation
                 }
 
+                loading={deleting}
+
             />
+
 
         </DashboardLayout>
 

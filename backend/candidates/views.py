@@ -1,19 +1,103 @@
-from django.shortcuts import render
-from audit.services import AuditService
-from audit.models import AuditLog
-# Create your views here.
+from django.db import transaction
+
 from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.exceptions import PermissionDenied
 
 from .models import Candidate
 from .serializers import CandidateSerializer
 from .permissions import IsAdminUser
+
+from audit.services import AuditService
+from audit.models import AuditLog
+
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 
 from common.pagination import StandardResultsSetPagination
-from drf_spectacular.utils import extend_schema, extend_schema_view
-from rest_framework.parsers import (MultiPartParser,FormParser,)
+
+from drf_spectacular.utils import (
+    extend_schema,
+    extend_schema_view,
+)
+
+from rest_framework.parsers import (
+    MultiPartParser,
+    FormParser,
+)
+
+
+def rebuild_blockchain():
+    """
+    Rebuild the remaining blockchain after a
+    candidate is deleted.
+
+    Deleting a candidate may delete:
+
+        Candidate
+            ↓
+        Votes
+            ↓
+        Blockchain blocks
+
+    The remaining chain must therefore be
+    recalculated.
+    """
+
+    from blockchain.models import BlockchainBlock
+    from blockchain.services import BlockchainService
+
+    blocks = list(
+        BlockchainBlock.objects
+        .select_related("vote")
+        .order_by("block_number")
+    )
+
+    previous_hash = "0" * 64
+
+    for index, block in enumerate(
+        blocks,
+        start=1,
+    ):
+
+        merkle_root = (
+            BlockchainService.generate_merkle_root(
+                block.vote
+            )
+        )
+
+        nonce = block.nonce
+
+        block_data = (
+            f"{index}"
+            f"{previous_hash}"
+            f"{merkle_root}"
+            f"{block.vote.id}"
+            f"{block.vote.voted_at.isoformat()}"
+            f"{nonce}"
+        )
+
+        current_hash = (
+            BlockchainService.generate_hash(
+                block_data
+            )
+        )
+
+        block.block_number = index
+        block.previous_hash = previous_hash
+        block.merkle_root = merkle_root
+        block.current_hash = current_hash
+
+        block.save(
+            update_fields=[
+                "block_number",
+                "previous_hash",
+                "merkle_root",
+                "current_hash",
+            ]
+        )
+
+        previous_hash = current_hash
 
 
 @extend_schema_view(
@@ -28,10 +112,17 @@ from rest_framework.parsers import (MultiPartParser,FormParser,)
         tags=["Candidates"],
     ),
 )
-class CandidateListCreateView(generics.ListCreateAPIView):
+class CandidateListCreateView(
+    generics.ListCreateAPIView
+):
 
     serializer_class = CandidateSerializer
-    parser_classes = [MultiPartParser, FormParser]
+
+    parser_classes = [
+        MultiPartParser,
+        FormParser,
+    ]
+
     def get_queryset(self):
 
         queryset = Candidate.objects.select_related(
@@ -40,21 +131,38 @@ class CandidateListCreateView(generics.ListCreateAPIView):
             "position__election__organization",
         )
 
-        organization = self.request.query_params.get("organization")
-        election = self.request.query_params.get("election")
-        position = self.request.query_params.get("position")
+        organization = (
+            self.request.query_params.get(
+                "organization"
+            )
+        )
+
+        election = (
+            self.request.query_params.get(
+                "election"
+            )
+        )
+
+        position = (
+            self.request.query_params.get(
+                "position"
+            )
+        )
 
         if organization:
+
             queryset = queryset.filter(
                 position__election__organization_id=organization
             )
 
         if election:
+
             queryset = queryset.filter(
                 position__election_id=election
             )
 
         if position:
+
             queryset = queryset.filter(
                 position_id=position
             )
@@ -64,22 +172,47 @@ class CandidateListCreateView(generics.ListCreateAPIView):
     def get_permissions(self):
 
         if self.request.method == "GET":
-            return [IsAuthenticated()]
+            return [
+                IsAuthenticated()
+            ]
 
-        return [IsAdminUser()]
+        return [
+            IsAdminUser()
+        ]
 
     def perform_create(self, serializer):
+
+        position = serializer.validated_data[
+            "position"
+        ]
+
+        election = position.election
+
+        if election.is_result_published:
+
+            raise PermissionDenied(
+                "Cannot create a candidate for a "
+                "published election."
+            )
+
         candidate = serializer.save()
 
         AuditService.log(
-        user=self.request.user,
-        action=AuditLog.Action.CREATE,
-        module="Candidate",
-        description=f"Candidate {candidate.first_name} {candidate.last_name} created.",
-        request=self.request,
-        object_id=str(candidate.id),
+            user=self.request.user,
+            action=AuditLog.Action.CREATE,
+            module="Candidate",
+            description=(
+                f"Candidate "
+                f"{candidate.first_name} "
+                f"{candidate.last_name} created."
+            ),
+            request=self.request,
+            object_id=str(candidate.id),
+        )
+
+    pagination_class = (
+        StandardResultsSetPagination
     )
-    pagination_class = StandardResultsSetPagination
 
     filter_backends = [
         DjangoFilterBackend,
@@ -111,6 +244,7 @@ class CandidateListCreateView(generics.ListCreateAPIView):
         "first_name",
     ]
 
+
 @extend_schema_view(
     get=extend_schema(
         summary="Get Candidate",
@@ -133,19 +267,40 @@ class CandidateListCreateView(generics.ListCreateAPIView):
         tags=["Candidates"],
     ),
 )
-class CandidateDetailView(generics.RetrieveUpdateDestroyAPIView):
+class CandidateDetailView(
+    generics.RetrieveUpdateDestroyAPIView
+):
 
     queryset = Candidate.objects.select_related(
         "position",
-        "position__election"
+        "position__election",
     )
 
     serializer_class = CandidateSerializer
-    parser_classes = [MultiPartParser, FormParser]
-    permission_classes = [IsAdminUser]
 
+    parser_classes = [
+        MultiPartParser,
+        FormParser,
+    ]
+
+    permission_classes = [
+        IsAdminUser
+    ]
 
     def perform_update(self, serializer):
+
+        candidate = self.get_object()
+
+        if (
+            candidate.position
+            .election
+            .is_result_published
+        ):
+
+            raise PermissionDenied(
+                "Cannot modify a candidate belonging "
+                "to a published election."
+            )
 
         candidate = serializer.save()
 
@@ -154,7 +309,8 @@ class CandidateDetailView(generics.RetrieveUpdateDestroyAPIView):
             action=AuditLog.Action.UPDATE,
             module="Candidate",
             description=(
-                f"Candidate '{candidate.first_name} "
+                f"Candidate "
+                f"'{candidate.first_name} "
                 f"{candidate.last_name}' updated."
             ),
             request=self.request,
@@ -163,16 +319,27 @@ class CandidateDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     def perform_destroy(self, instance):
 
-        candidate_name = f"{instance.first_name} {instance.last_name}"
+        candidate_name = (
+            f"{instance.first_name} "
+            f"{instance.last_name}"
+        )
+
         candidate_id = str(instance.id)
 
-        instance.delete()
+        with transaction.atomic():
 
-        AuditService.log(
-            user=self.request.user,
-            action=AuditLog.Action.DELETE,
-            module="Candidate",
-            description=f"Candidate '{candidate_name}' deleted.",
-            request=self.request,
-            object_id=candidate_id,
-        )
+            instance.delete()
+
+            rebuild_blockchain()
+
+            AuditService.log(
+                user=self.request.user,
+                action=AuditLog.Action.DELETE,
+                module="Candidate",
+                description=(
+                    f"Candidate '{candidate_name}' "
+                    f"deleted and related data removed."
+                ),
+                request=self.request,
+                object_id=candidate_id,
+            )
